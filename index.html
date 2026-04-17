@@ -1357,6 +1357,7 @@
 
             function handleFullscreenChange() {
                 var iconCode = document.querySelector("#FullScrIcon");
+                var fullScreenBtn = document.querySelector("#FullScreen");
                 // Update fullscreen icon based on actual fullscreen state.
                 // This removes the need for a separate state variable and
                 // prevents incorrect icon state when fullscreen is toggled
@@ -1368,6 +1369,17 @@
                     document.msFullscreenElement;
 
                 iconCode.textContent = isFullscreen ? "\ue5d1" : "\ue5d0";
+
+                if (fullScreenBtn && typeof _ === 'function') {
+                    var tooltipText = isFullscreen ? _("Exit Fullscreen") : _("Enter Fullscreen");
+                    fullScreenBtn.setAttribute("data-tooltip", tooltipText);
+                    if (window.jQuery) {
+                        window.jQuery(fullScreenBtn).tooltip({
+                            html: true,
+                            delay: 100
+                        });
+                    }
+                }
             }
 
             document.addEventListener("fullscreenchange", handleFullscreenChange);

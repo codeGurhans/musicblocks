@@ -15,7 +15,7 @@
    TITLESTRING, GUIDEURL, docById, docByClass, doSVG,
    fileExt, ABCHEADER, LILYPONDHEADER, platform, saveAbcOutput,
    saveLilypondOutput, saveMxmlOutput, getMidiInstrument, getMidiDrum,
-   Midi, activity
+   Midi, activity, normalizeNoteAccidentals
  */
 
 /**
@@ -78,18 +78,18 @@ class SaveInterface {
             STR_MY_PROJECT +
             ' - {{ project_name }}</h3> <p>{{ project_description }}</p><hr> <div> <div style="color: #9E9E9E"><p>' +
             _("This project was created in Music Blocks") +
-            ' (<a href="https://musicblocks.sugarlabs.org" target="_blank">https://musicblocks.sugarlabs.org</a>). ' +
+            ' (<a href="https://musicblocks.sugarlabs.org" target="_blank" rel="noopener noreferrer">https://musicblocks.sugarlabs.org</a>). ' +
             TITLESTRING +
             " " +
             _("Music Blocks is a Free/Libre Software application.") +
             " " +
             _("The source code can be accessed at") +
-            ' <a href="https://github.com/sugarlabs/musicblocks" target="_blank">https://github.com/sugarlabs/musicblocks</a>.' +
+            ' <a href="https://github.com/sugarlabs/musicblocks" target="_blank" rel="noopener noreferrer">https://github.com/sugarlabs/musicblocks</a>.' +
             " " +
             _("For more information, please consult the") +
             ' <a href="' +
             GUIDEURL +
-            '" target="_blank">' +
+            '" target="_blank" rel="noopener noreferrer">' +
             _("Music Blocks Guide") +
             "</a>." +
             "</p><p>" +
@@ -102,7 +102,7 @@ class SaveInterface {
             _("Project Code") +
             "</h4>" +
             _("This code stores data about the blocks in a project.") +
-            '<a href="javascript:toggle();" id="showhide">' +
+            '<a href="#" onclick="toggle(); return false;" id="showhide">' +
             STR_SHOW +
             "</a>" +
             '<button class="btn" onclick="copyCode()" style="margin-left: 10px;">' +
@@ -167,6 +167,30 @@ class SaveInterface {
         });
     }
 
+    showToast(message) {
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.innerText = message;
+
+        const canvas = document.querySelector("#canvas");
+        const container = canvas ? canvas.parentElement : document.body;
+
+        container.appendChild(toast);
+
+        toast.style.position = "absolute";
+        toast.style.bottom = "20px";
+        toast.style.right = "20px";
+        toast.style.background = "#4caf50";
+        toast.style.color = "white";
+        toast.style.padding = "12px 16px";
+        toast.style.borderRadius = "6px";
+        toast.style.zIndex = "9999999";
+
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
     /**
      * Download a file to the user's computer.
      * Uses MBDialog prompt when available to collect a filename with a modal UI.
@@ -176,7 +200,9 @@ class SaveInterface {
      * @returns {void}
      */
     download(extension, dataurl, defaultfilename) {
+        let message = _("Enter a filename to save your project:");
         let filename = null;
+        //const self = this;
         const finishDownload = name => {
             if (name === null) {
                 console.debug("save cancelled");
@@ -188,6 +214,14 @@ class SaveInterface {
             }
 
             this.downloadURL(name, dataurl);
+            if (extension === "webm") {
+                message = _("Recording saved! Check Downloads.");
+            } else if (extension === "html") {
+                message = _("Project saved! Check Downloads.");
+            } else {
+                message = _("File saved! Check Downloads.");
+            }
+            this.showToast(message);
         };
         if (defaultfilename === undefined || defaultfilename === null) {
             if (this.activity.PlanetInterface === undefined) {
@@ -236,9 +270,14 @@ class SaveInterface {
         const a = document.createElement("a");
         a.setAttribute("href", dataurl);
         a.setAttribute("download", filename);
+        a.setAttribute("rel", "noopener noreferrer");
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+
+        if (typeof URL.revokeObjectURL === "function") {
+            URL.revokeObjectURL(dataurl);
+        }
     }
 
     /**
@@ -356,10 +395,6 @@ class SaveInterface {
         const instrumentMIDI = getMidiInstrument();
         const drumMIDI = getMidiDrum();
         const generateMidi = data => {
-            const normalizeNote = note => {
-                return note.replace("♯", "#").replace("♭", "b");
-            };
-
             const midi = new Midi();
             midi.header.ticksPerBeat = 480;
 
@@ -414,7 +449,7 @@ class SaveInterface {
                         noteData.note.forEach(pitch => {
                             if (!pitch.includes("R")) {
                                 instrumentTrack.addNote({
-                                    name: normalizeNote(pitch),
+                                    name: normalizeNoteAccidentals(pitch),
                                     time: globalTime,
                                     duration: duration,
                                     velocity: 0.8
@@ -888,7 +923,7 @@ class SaveInterface {
         const showCopiedMessage = () => {
             this.activity.textMsg(
                 _("The Lilypond code is copied to clipboard. You can paste it here: ") +
-                    "<a href='http://hacklily.org' target='_blank'>http://hacklily.org</a> "
+                    "<a href='http://hacklily.org' target='_blank' rel='noopener noreferrer'>http://hacklily.org</a> "
             );
         };
 

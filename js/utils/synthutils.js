@@ -18,7 +18,7 @@
    getOctaveRatio, isCustomTemperament, Singer, DOUBLEFLAT, DOUBLESHARP,
    DEFAULTDRUM, getOscillatorTypes, numberToPitch, platform,
    getArticulation, piemenuPitches, docById, slicePath, wheelnav, platformColor,
-   DEFAULTVOICE
+   DEFAULTVOICE, normalizeNoteAccidentals
 */
 
 /*
@@ -888,6 +888,9 @@ function Synth() {
                     console.error(`Error processing sample ${sampleName}:`, e);
                     reject(e);
                 }
+            }, err => {
+                console.error(`Failed to load sample module for ${sampleName}:`, err);
+                reject(err);
             });
         });
     };
@@ -1701,12 +1704,14 @@ function Synth() {
         let numFilters;
         const temp_filters = [];
         const effectsToDispose = [];
+        const epoch = this._instrumentEpoch;
 
         try {
             if (paramsEffects === null && paramsFilters === null) {
                 // See https://github.com/sugarlabs/musicblocks/issues/2951
                 try {
                     await Tone.ToneAudioBuffer.loaded();
+                    if (this._instrumentEpoch !== epoch) return;
                     synth.triggerAttackRelease(notes, beatValue, Tone.now() + future);
                 } catch (e) {
                     console.debug("Error triggering note:", e);
@@ -1757,6 +1762,7 @@ function Synth() {
                     }
                     try {
                         await Tone.ToneAudioBuffer.loaded();
+                        if (this._instrumentEpoch !== epoch) return;
                         synth.triggerAttackRelease(notes, beatValue, Tone.now() + future);
                     } catch (e) {
                         console.debug("Error triggering note (no-graph-rewire fast path):", e);
@@ -1868,12 +1874,12 @@ function Synth() {
                         // for each note.
                         const obj = [];
                         for (let i = 0; i < paramsEffects["neighborArgNote1"].length; i++) {
-                            const note1 = paramsEffects["neighborArgNote1"][i]
-                                .replace("♯", "#")
-                                .replace("♭", "b");
-                            const note2 = paramsEffects["neighborArgNote2"][i]
-                                .replace("♯", "#")
-                                .replace("♭", "b");
+                            const note1 = normalizeNoteAccidentals(
+                                paramsEffects["neighborArgNote1"][i]
+                            );
+                            const note2 = normalizeNoteAccidentals(
+                                paramsEffects["neighborArgNote2"][i]
+                            );
                             obj.push(
                                 { time: 0, note: note1, duration: firstTwoBeats },
                                 { time: firstTwoBeats, note: note2, duration: firstTwoBeats },
@@ -1902,7 +1908,9 @@ function Synth() {
                     } else {
                         try {
                             await Tone.ToneAudioBuffer.loaded();
-                            synth.triggerAttackRelease(notes, beatValue, Tone.now() + future);
+                            if (this._instrumentEpoch === epoch) {
+                                synth.triggerAttackRelease(notes, beatValue, Tone.now() + future);
+                            }
                         } catch (e) {
                             console.debug("Error triggering note:", e);
                         }
@@ -3589,6 +3597,7 @@ function Synth() {
      * @returns {void}
      */
     this.disposeAllInstruments = () => {
+        this._instrumentEpoch++;
         _disposeRecordingPlayer();
         _revokeRecordingURL();
 
@@ -3645,6 +3654,7 @@ function Synth() {
         }
     };
 
+    this._instrumentEpoch = 0;
     this.tone = null;
     this.noteFrequencies = {};
     this.startingPitch = "C4";
